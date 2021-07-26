@@ -1,0 +1,164 @@
+diff -Naur rootfs.orig/etc/rc.local rootfs.new/etc/rc.local
+--- rootfs.orig/etc/rc.local	2021-03-05 04:20:13.734059368 +0530
++++ rootfs.new/etc/rc.local	2021-07-23 20:30:10.731823659 +0530
+@@ -15,6 +15,18 @@
+ _IP=$(hostname -I) || true
+ if [ "$_IP" ]; then
+   printf "My IP address is %s\n" "$_IP"
++  /etc/init.d/ssh start
++fi
++
++if [ ! -f "/opt/nxt/time-sync-done" ]; then
++  /opt/nxt/time-sync-monitor.sh &
++fi
++
++if [ -f "/opt/nxt/time-sync-done" ]; then
++	if [ ! -f "/opt/nxt/setup-done" ]; then
++  		echo "NXT one time setup started !!"
++  		/opt/nxt/onetime.sh &
++	fi
+ fi
+ 
+ exit 0
+diff -Naur rootfs.orig/opt/nxt/onetime.sh rootfs.new/opt/nxt/onetime.sh
+--- rootfs.orig/opt/nxt/onetime.sh	1970-01-01 05:30:00.000000000 +0530
++++ rootfs.new/opt/nxt/onetime.sh	2021-07-26 16:04:44.016360914 +0530
+@@ -0,0 +1,114 @@
++#! /bin/sh
++
++set -e
++
++# Update system's package list
++apt-get update -y
++
++# TODO - Show Progress on HDMI
++#apt-get install -y fbi
++#fbi --autozoom --noverbose --vt 1 /opt/logo.png
++
++# Install packages used by NXT
++apt-get install -y vim
++apt-get install -y libncurses5-dev
++apt-get install -y libhiredis-dev
++apt-get install -y libevent-dev
++apt-get install -y git
++apt-get install -y iperf mtr ntp ntpdate
++apt-get install -y screen
++apt-get install -y libcec-dev
++apt-get install -y cec-utils
++apt-get install -y lsof
++apt-get install -y libjson-c-dev
++apt-get install -y tcpdump
++apt-get install -y imagemagick
++apt-get install -y gstreamer1.0-tools
++apt-get install -y openvpn
++apt-get install -y rssh
++
++# Install packages required by omxplayer
++apt-get install -y ca-certificates binutils libasound2-dev libpcre3-dev libidn11-dev libboost-dev libfreetype6-dev libdbus-1-dev libssh-dev libsmbclient-dev gcc g++ sed pkg-config
++
++# Compile & Install omxplayer
++echo "Compiling & Installing omxplayer  !!"
++cd /opt/nxt/
++git clone https://github.com/NXT-Hitesh/omxplayer.git
++cd omxplayer
++./prepare-native-raspbian.sh
++make ffmpeg
++make -j$(nproc)
++sudo make install
++cd /opt/nxt/
++rm -rf omxplayer
++
++# Compile & Install NXT TS utilities
++echo "Compiling & Installing NXT TS utilities  !!"
++cd /opt/nxt/
++wget http://158.106.77.16/pi-4-archives/gettsbitrate.tgz
++tar -xzvf gettsbitrate.tgz
++cd gettsbitrate/
++make
++cd /opt/nxt/
++rm -rf gettsbitrate*
++
++wget http://158.106.77.16/pi-4-archives/gettsbitrate_num.tgz
++tar -xzvf gettsbitrate_num.tgz
++cd gettsbitrate_num
++make
++cd /opt/nxt/
++rm -rf gettsbitrate_num*
++
++wget http://158.106.77.16/pi-4-archives/monitorts.tgz
++tar -xzvf monitorts.tgz
++cd monitorts
++make
++cd /opt/nxt/
++rm -rf monitorts*
++
++wget http://158.106.77.16/pi-4-archives/tsmonitor1.0.tgz
++tar -xzvf tsmonitor1.0.tgz
++cd tsmonitor
++make
++cd /opt/nxt/
++rm -rf tsmonitor*
++
++wget http://158.106.77.16/pi-4-archives/txr4.5_gcc4.9.tgz
++tar -xzvf txr4.5_gcc4.9.tgz
++cd txr4.5_gcc4.9
++make
++cd /opt/nxt/
++rm -rf txr4.5_gcc4.9*
++
++wget http://158.106.77.16/pi-4-archives/txr5.0.3_gcc4.9.tgz
++tar -xzvf txr5.0.3_gcc4.9.tgz
++cd txr5.0.3_gcc4.9
++make
++make install
++cd /opt/nxt/
++rm -rf txr5.0.3_gcc4.9*
++
++wget http://158.106.77.16/pi-4-archives/txr6.1.2_gcc4.9.tgz
++tar -xzvf txr6.1.2_gcc4.9.tgz
++cd txr6.1.2_gcc4.9
++make
++make install
++cd /opt/nxt/
++rm -rf txr6.1.2_gcc4.9*
++
++wget http://158.106.77.16/pi-4-archives/rtpToTxr6.2.1.tgz
++tar -xzvf rtpToTxr6.2.1.tgz
++cd rtpToTxr
++make
++make install
++cd /opt/nxt/
++rm -rf rtpToTxr*
++
++echo "NXT one time setup done !!"
++
++# Touch once everything is done.
++touch /opt/nxt/setup-done
++
++echo "Rebooting in 3 seconds !!"
++sleep 3
++reboot
+diff -Naur rootfs.orig/opt/nxt/time-sync-monitor.sh rootfs.new/opt/nxt/time-sync-monitor.sh
+--- rootfs.orig/opt/nxt/time-sync-monitor.sh	1970-01-01 05:30:00.000000000 +0530
++++ rootfs.new/opt/nxt/time-sync-monitor.sh	2021-07-26 11:24:09.598806324 +0530
+@@ -0,0 +1,20 @@
++#! /bin/sh
++
++set -e
++
++for i in 1 2 3 4 5 6 7 8 9 10; do
++	_TS=$(timedatectl status | grep "System clock synchronized" | awk '{ print $4 }')
++	if [ "$_TS" = "yes" ]; then
++		echo "Time synchronization done, Rebooting in 3 seconds"
++		fake-hwclock
++		touch /opt/nxt/time-sync-done
++		sleep 4;
++		reboot
++	fi
++	echo "Time synchronization in progress, please wait..."
++	sleep 3;
++done
++
++if [ "$_TS" = "no" ]; then
++	echo "Time synchronization failed, connect internet and retry again..."
++fi

@@ -1,0 +1,27 @@
+diff -Naur boot.orig/cmdline.txt boot.new/cmdline.txt
+--- boot.orig/cmdline.txt	2021-03-05 04:34:24.000000000 +0530
++++ boot.new/cmdline.txt	2021-07-26 11:25:04.000000000 +0530
+@@ -1 +1 @@
+-console=serial0,115200 console=tty1 root=PARTUUID=83c4223d-02 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait quiet init=/usr/lib/raspi-config/init_resize.sh
++console=serial0,115200 console=tty1 root=PARTUUID=83c4223d-02 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait quiet init=/usr/lib/raspi-config/init_resize.sh logo.nologo vt.global_cursor_default=0
+diff -Naur boot.orig/config.txt boot.new/config.txt
+--- boot.orig/config.txt	2021-03-05 04:19:16.000000000 +0530
++++ boot.new/config.txt	2021-07-26 12:25:56.000000000 +0530
+@@ -2,6 +2,9 @@
+ # http://rpf.io/configtxt
+ # Some settings may impact device functionality. See link above for details
+ 
++disable_splash=1
++hdmi_mode=16
++
+ # uncomment if you get no picture on HDMI for a default "safe" mode
+ #hdmi_safe=1
+ 
+@@ -60,6 +63,7 @@
+ # Enable DRM VC4 V3D driver on top of the dispmanx display stack
+ dtoverlay=vc4-fkms-v3d
+ max_framebuffers=2
++dtoverlay=dwc2,dr_mode=host
+ 
+ [all]
+ #dtoverlay=vc4-fkms-v3d
